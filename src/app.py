@@ -87,7 +87,8 @@ def get_all_favorites():
     current_user = get_jwt_identity()
     # favorites_query = Favorites.query.all()
     # favorites_data = list(map(lambda item: item.serialize(), favorites_query))
-    user_favorites_query = User.query.filter_by(email = current_user)
+    user_favorites_query = User.query.filter_by(id = current_user)
+    print(user_favorites_query)
     user_favorites_data = list(map(lambda item: item.serialize(), user_favorites_query))
 
     print(user_favorites_data)
@@ -96,6 +97,22 @@ def get_all_favorites():
         "data":user_favorites_data
     
 }
+    return jsonify(response_body), 200
+
+@app.route('/favorites', methods=['POST'])
+@jwt_required()
+def create_one_favorite():
+    body = request.json
+    id = get_jwt_identity()
+    print(id)
+    print(body)
+    new_favorite = Favorites(id_user = id, id_planets=body["id_planets"], id_vehicles=body["id_vehicles"], id_person=body["id_person"])
+    db.session.add(new_favorite)
+    db.session.commit()
+    response_body = {
+        "msg": "favorite created",
+        # "people": people_query.serialize
+    }
     return jsonify(response_body), 200
 #para obtener datos de UNA sola PERSONA
 @app.route('/people/<int:people_id>', methods=['GET'])
@@ -112,7 +129,7 @@ def get_one_people(people_id):
 @app.route('/vehicle/<int:vehicles_id>', methods=['GET'])
 def get_one_vehicle(vehicle_id):
     # print(vehicles_id)
-    vehicle_query = Person.query.filter_by(id=vehicle_id).first()
+    vehicle_query = Vehicles.query.filter_by(id=vehicle_id).first()
     # print(people_query.serialize())
     response_body = {
         "msg": "ok",
@@ -123,7 +140,7 @@ def get_one_vehicle(vehicle_id):
 @app.route('/planet/<int:planet_id>', methods=['GET'])
 def get_one_planet(planet_id):
     # print(vehicles_id)
-    planet_query = Person.query.filter_by(id=planet_id).first()
+    planet_query = Planets.query.filter_by(id=planet_id).first()
     # print(people_query.serialize())
     response_body = {
         "msg": "ok",
@@ -134,7 +151,7 @@ def get_one_planet(planet_id):
 @app.route('/people', methods=['POST'])
 def create_one_people():
     body = request.json
-    new_people = Person(name=body["name"])
+    new_people = Person(nombre_personaje=body["nombre_personaje"], edad=body["edad"], genero=body["genero"], color_ojos=body["color_ojos"], color_cabello=body["color_cabello"], altura=body["altura"])
     db.session.add(new_people)
     db.session.commit()
     response_body = {
@@ -156,24 +173,45 @@ def create_one_planet():
         # "people": people_query.serialize
     }
     return jsonify(response_body), 200
-       
-
 
 @app.route("/login", methods=["POST"])
 def login():
-    # body = request.json
-    email = request.json.get("email", None)
-    password = request.json.get("password", None)
+    data = request.json
+    email = data.get("email", None)
+    password = data.get("password", None)
 
     user_query = User.query.filter_by(email=email).first()
 
-    print(user_query.email)
-
-    if email != user_query.email or password != user_query.password:
+    if  password != user_query.password:
         return jsonify({"msg": "Bad username or password"}), 401
 
-    access_token = create_access_token(identity=email)
-    return jsonify(access_token=access_token)
+    access_token = create_access_token(identity=user_query.id)
+    return jsonify({"access_token":access_token})
+
+@app.route("/signup", methods=["POST"])
+def signup():
+    data = request.json
+    app.logger.info("Data received from signup endpoint: %s", data) 
+    email = data.get("email")
+    password = data.get("password")
+    name=data.get("name")
+
+    existing_user = User.query.filter_by(email=email).first()
+    if existing_user:
+        return jsonify({"msg": "Email already exists"}), 400
+
+    new_user = User(
+        email= email,
+        password= password,
+        name= name
+    )
+
+    db.session.add(new_user)
+    db.session.commit()
+
+    access_token = create_access_token(identity=new_user.id)
+
+    return jsonify({"token": access_token, "user_id": new_user.id}), 201
 
 @app.route("/protected", methods=["GET"])
 @jwt_required()
