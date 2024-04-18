@@ -90,7 +90,7 @@ class Favorites (db.Model):
         return {
             "id": self.id,
             "id_user": self.id_user,
-            # do not serialize the password, its a security breach
+            "id_planets": self.id_planets,
+            "id_vehicles": self.id_vehicles,
+            "id_person": self.id_person
         }
-
-    
